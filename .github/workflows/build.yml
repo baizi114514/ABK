@@ -5726,7 +5726,9 @@ jobs:
             sed -i '/KMI_SYMBOL_LIST_STRICT_MODE/d' ./common/build.config.gki.aarch64
 
             if [ -f "build/build.sh" ]; then
-              LTO=thin BUILD_CONFIG=common/build.config.gki.aarch64 build/build.sh CC="/usr/bin/ccache clang" || exit 1
+              LTO_VAL=thin
+              if grep -q '^CONFIG_KASAN=y$' "$DEFCONFIG" 2>/dev/null; then LTO_VAL=none; fi
+              LTO=$LTO_VAL BUILD_CONFIG=common/build.config.gki.aarch64 build/build.sh CC="/usr/bin/ccache clang" || exit 1
               strings "out/${{ inputs.android_version }}-${{ inputs.kernel_version }}/dist/Image" | grep 'Linux version'
             else
               # 提取 gki_defconfig 修改到 fragment，避免 bazel trim 检查失败
@@ -5741,7 +5743,7 @@ jobs:
                 FRAG_FLAG="--defconfig_fragment=//common:arch/arm64/configs/ksu.fragment"
               fi
               LTO_FLAG="--lto=thin"
-              if [ "${{ inputs.kernel_version }}" = "6.12" ]; then
+              if [ "${{ inputs.kernel_version }}" = "6.12" ] || { [ -s "$FRAG" ] && grep -q '^CONFIG_KASAN=y$' "$FRAG"; }; then
                 LTO_FLAG="--lto=none"
               fi
               tools/bazel build --disk_cache=/home/runner/.cache/bazel --config=fast $LTO_FLAG $FRAG_FLAG //common:kernel_aarch64_dist || exit 1
